@@ -13,4 +13,4 @@ The code in this directory performs the following tasks:
 
 ## Code
 
-The Jupyter notebook for HDBSCAN clustering on RS and using centroid, apply to WS will be added here.
+The Jupyter notebook for HDBSCAN clustering on RS and using centroid, apply to WS is available in this directory.

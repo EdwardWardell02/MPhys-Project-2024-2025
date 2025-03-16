@@ -13,4 +13,4 @@ The code in this directory performs the following tasks:
 
 ## Code
 
-The Jupyter notebook for clustering a t-SNE reduced sample with DBSCAN or HDBSCAN with scoring will be added here.
+The Jupyter notebook for clustering a t-SNE reduced sample with DBSCAN or HDBSCAN with scoring is available in this directory.

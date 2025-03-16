@@ -10,6 +10,17 @@ Each code in this directory has its own ReadMe file explaining its purpose and f
 
 ## List of Codes
 
-1. Code1: Description of Code1
-2. Code2: Description of Code2
-3. Code3: Description of Code3
+1. 2D Mass Fits Loops for Significance Scan
+   - `README.md`: Explains the purpose of the directory and the cpp code.
+   - `2D_mass_fits.cpp`: Placeholder for the cpp code that performs the 2D mass fits looping over the cuts of the BDT response.
+2. 1D Mass Fits
+   - `README.md`: Explains the purpose of the directory and the cpp codes.
+   - `RS_1D_Deltam_Mass_Fit.cpp`: Placeholder for the cpp code that performs the RS 1D Deltam mass fit.
+   - `RS_1D_D0_Mass_Fit.cpp`: Placeholder for the cpp code that performs the RS 1D D0 mass fit.
+   - `WS_1D_Deltam_Mass_Fit.cpp`: Placeholder for the cpp code that performs the WS 1D Deltam mass fit.
+   - `WS_1D_D0_Mass_Fit.cpp`: Placeholder for the cpp code that performs the WS 1D D0 mass fit.
+3. 2D Mass Fits
+   - `RS_2D_Mass_Fits.cpp`: Placeholder for the cpp code that performs the RS 2D mass fits.
+   - `WS_2D_Mass_Fits.cpp`: Placeholder for the cpp code that performs the WS 2D mass fits.
+   - `RS_2D_Mass_Fits_Projections.cpp`: Placeholder for the cpp code that performs the RS 2D mass fits projections.
+   - `WS_2D_Mass_Fits_Projections.cpp`: Placeholder for the cpp code that performs the WS 2D mass fits projections.

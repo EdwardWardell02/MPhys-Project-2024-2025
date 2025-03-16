@@ -1,3 +1,14 @@
+// This file contains the implementation of a 2D mass fit analysis using RooFit and ROOT.
+// The analysis consists of three parts:
+// 1. Fitting the D0 mass (1D fit) to extract signal and background parameters.
+// 2. Fitting the ΔM (DeltaM) mass (1D fit) to extract its parameters.
+// 3. Performing a 2D fit by combining the two distributions, with various BDT cut values.
+// 
+// The code uses a TTree to read events, creates RooDataSets from histograms, defines signal and background models,
+// performs the fits, and prints the resulting yields. The function `Automated_2D_Classifier` can be called
+// from a ROOT macro to run the entire analysis.
+
+// Include necessary RooFit, ROOT, and standard library headers.
 #include "RooFit.h"
 #include "RooRealVar.h"
 #include "RooDataSet.h"
@@ -20,7 +31,7 @@
 #include <fstream>
 #include <sstream>
 
-// Structures to store fit parameters for the 1D fits
+// Structure to store parameters from the 1D D0 mass fit
 struct D0FitParams {
     double mean;
     double lambda;
@@ -35,6 +46,7 @@ struct D0FitParams {
     double nbkg;
 };
 
+// Structure to store parameters from the 1D ΔM mass fit
 struct DeltaMFitParams {
     double mean;
     double lambda;
@@ -46,7 +58,7 @@ struct DeltaMFitParams {
     double nbkg;
 };
 
-// Structure to store yields from the 2D fit
+// Structure to store the yields from the 2D mass fit
 struct TwoDYields {
     double signal;
     double combinatorial;
@@ -55,21 +67,23 @@ struct TwoDYields {
 };
 
 //
-// Helper function to plot the 2D mass fits (D0 and ΔM) and save the plots using a suffix
+// Helper function to plot the 2D mass fits (D0 and ΔM) and their pull distributions.
+// The plots are produced on two separate canvases (one for D0 and one for ΔM) and can be saved
+// using a suffix that identifies the cut values applied.
 //
 void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
                 RooDataSet &data, RooAddPdf &total, const std::string &suffix) {
-  // D0 mass frame
+  // Create a frame for the D0 mass distribution
   RooPlot* d0_frame = D0_refit.frame(RooFit::Title("D0 Mass Fit"));
   data.plotOn(d0_frame, RooFit::Name("d0_data"));
   total.plotOn(d0_frame, RooFit::LineColor(kBlue), RooFit::LineWidth(8), RooFit::Name("total_D0_fit"));
 
-  // ΔM mass frame
+  // Create a frame for the ΔM mass distribution
   RooPlot* deltam_frame = deltam_refit.frame(RooFit::Title("ΔM Mass Fit"));
   data.plotOn(deltam_frame, RooFit::Name("deltam_data"));
   total.plotOn(deltam_frame, RooFit::LineColor(kBlue), RooFit::LineWidth(8), RooFit::Name("total_deltam_fit"));
 
-  // Pull distributions
+  // Create pull distribution frames for D0 and ΔM
   RooPlot* d0_pull_frame = D0_refit.frame(RooFit::Title("Pull Distribution D0"));
   RooHist* d0_pullHist = d0_frame->pullHist();
   d0_pull_frame->addPlotable(d0_pullHist, "P");
@@ -78,7 +92,7 @@ void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
   RooHist* deltam_pullHist = deltam_frame->pullHist();
   deltam_pull_frame->addPlotable(deltam_pullHist, "P");
 
-  // Overlay individual components (D0)
+  // Overlay individual signal and background components on the D0 frame
   total.plotOn(d0_frame, RooFit::Components("signal"), RooFit::LineColor(kRed),
                RooFit::LineStyle(9), RooFit::LineWidth(8), RooFit::Name("D0_signal_fit"));
   total.plotOn(d0_frame, RooFit::Components("combinatorial"), RooFit::LineColor(kGreen+2),
@@ -89,7 +103,7 @@ void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
                RooFit::LineStyle(1), RooFit::LineWidth(8), RooFit::Name("D0_misreco_fit"));
   data.plotOn(d0_frame, RooFit::Name("d0_data"));
 
-  // Overlay individual components (ΔM)
+  // Overlay individual signal and background components on the ΔM frame
   total.plotOn(deltam_frame, RooFit::Components("signal"), RooFit::LineColor(kRed),
                RooFit::LineStyle(9), RooFit::LineWidth(8), RooFit::Name("deltam_signal_fit"));
   total.plotOn(deltam_frame, RooFit::Components("combinatorial"), RooFit::LineColor(kGreen+2),
@@ -102,11 +116,11 @@ void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
   total.paramOn(d0_frame);
   total.paramOn(deltam_frame);
 
-  // Draw D0 mass plot on a canvas
+  // Draw the D0 mass plot on a canvas with a pull distribution below
   double max_data_point = d0_frame->GetMaximum();
   d0_frame->SetMaximum(1.1 * max_data_point);
   d0_frame->SetMinimum(1);
-  TCanvas* c1 = new TCanvas(("c1_"+suffix).c_str(), "D0 Fit Canvas", 900, 900);
+  TCanvas* c1 = new TCanvas(("c1_" + suffix).c_str(), "D0 Fit Canvas", 900, 900);
   c1->SetTitle("");
   c1->Divide(1, 2, 0.0, 0.0);
   c1->cd(1)->SetPad(0.05, 0.35, 0.95, 1.0);
@@ -148,13 +162,14 @@ void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
   zeroLine->SetLineWidth(2);
   zeroLine->Draw();
   c1->Update();
-  
 
-  // Draw ΔM mass plot on another canvas
-  /*double max_data_pointdm = deltam_frame->GetMaximum();
+  // The ΔM canvas plotting block is currently commented out.
+  // Uncomment and adjust if separate plots for ΔM are required.
+  /*
+  double max_data_pointdm = deltam_frame->GetMaximum();
   deltam_frame->SetMaximum(1.1 * max_data_pointdm);
   deltam_frame->SetMinimum(1);
-  TCanvas* c2 = new TCanvas(("c2_"+suffix).c_str(), "ΔM Fit Canvas", 900, 900);
+  TCanvas* c2 = new TCanvas(("c2_" + suffix).c_str(), "ΔM Fit Canvas", 900, 900);
   c2->SetTitle("");
   c2->Divide(1, 2, 0.0, 0.0);
   c2->cd(1)->SetPad(0.05, 0.35, 0.95, 1.0);
@@ -195,16 +210,23 @@ void Plot2DMass(RooRealVar &D0_refit, RooRealVar &deltam_refit,
   zeroLine2->SetLineStyle(9);
   zeroLine2->SetLineWidth(2);
   zeroLine2->Draw();
-  c2->Update();*/
-  
+  c2->Update();
+  */
 }
 
+//
+// Function to perform the 1D D0 mass fit.
+// This function opens the ROOT file, applies cuts based on BDTG responses,
+// fills a histogram with the selected D0 mass values, converts the histogram to a RooDataSet,
+// defines the signal (Johnson + bifurcated Gaussian) and background (Chebychev) models,
+// performs the fit, prints the fit results, and returns the fitted parameters.
+//
 D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
-    // Open file and tree
+    // Open the ROOT file and retrieve the TTree
     TFile* file = TFile::Open(file_path);
     TTree* tree = (TTree*)file->Get("outtree");
 
-    // Variables from tree
+    // Variables read from the tree branches
     float BDTG_response_comb;
     float BDTG_response_rsp;
     float D0_refit_mass;
@@ -212,10 +234,11 @@ D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
     tree->SetBranchAddress("BDTG_response_rsp", &BDTG_response_rsp);
     tree->SetBranchAddress("Dst_ReFit_D0_M_best", &D0_refit_mass);
 
-    // Create histogram for D0 mass (adjust binning as needed)
+    // Create a histogram to store the D0 mass distribution (binning may be adjusted as needed)
     TH1F* h_mass = new TH1F("h_mass", "D0 Refit Mass;Mass (MeV/c^{2});Events", 100, 1820, 1910);
     Long64_t nentries = tree->GetEntries();
     int selectedEvents = 0;
+    // Loop over events and fill the histogram if the event passes the BDTG cuts
     for (Long64_t i = 0; i < nentries; i++) {
         tree->GetEntry(i);
         if (BDTG_response_comb > comb_cut && BDTG_response_rsp > rsp_cut) {
@@ -225,7 +248,7 @@ D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
     }
     std::cout << "D0Fit: Total entries = " << nentries << ", Selected = " << selectedEvents << std::endl;
 
-    // RooFit: create variable and dataset from histogram
+    // Define the RooRealVar for D0 mass and build a RooDataSet from the histogram
     RooRealVar D0_refit("Dst_ReFit_D0_M_best", "m(D^{0}) [MeV/c^{2}]", 1820., 1910.);
     RooDataSet data("data", "dataset", RooArgSet(D0_refit));
     for (int bin = 1; bin <= h_mass->GetNbinsX(); bin++) {
@@ -238,7 +261,7 @@ D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
     }
     std::cout << "D0Fit: Entries in RooDataSet = " << data.numEntries() << std::endl;
 
-    // Signal model: Johnson PDF and Bifurcated Gaussian mixture
+    // Define the signal model: a combination of a Johnson function and a bifurcated Gaussian
     RooRealVar mean("mean", "Signal mean", 1865., 1863., 1867);
     RooRealVar lambda("lambda", "deltam_lambda", 9, 0, 15);
     RooRealVar gamma("gamma", "deltam_gamma", 0.31, -2, 2);
@@ -252,21 +275,21 @@ D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
     RooRealVar f_bifur("f_bifur", "Fraction", 0.4, 0.0, 1.0);
     RooAddPdf signal("signal", "Signal Model", RooArgList(d0_johnson, bifurGauss), RooArgList(f_bifur));
 
-    // Background model: Chebychev
+    // Define the background model using a Chebychev polynomial
     RooRealVar a1("a1", "Coefficient a1", -0.16, -1.0, 2.0);
     RooRealVar a2("a2", "Coefficient a2", 0.11, -1.0, 2.0);
     RooChebychev background("background", "Chebychev Bkg", D0_refit, RooArgList(a1, a2));
 
-    // Total PDF
+    // Define the total PDF as the sum of signal and background components
     RooRealVar nsig("nsig", "Number of signal events", 4090000, 0, 1e8);
     RooRealVar nbkg("nbkg", "Number of background events", 35000000, 0, 1e9);
     RooAddPdf total("total", "Signal+Background", RooArgList(signal, background), RooArgList(nsig, nbkg));
 
-    // Perform the fit
+    // Perform the fit and print the results
     RooFitResult* fit_result = total.fitTo(data, RooFit::Save(), RooFit::PrintLevel(-1), RooFit::Minos(true));
     fit_result->Print("v");
 
-    // Store the fitted parameters
+    // Store the fitted parameters in the structure to return
     D0FitParams params;
     params.mean   = mean.getVal();
     params.lambda = lambda.getVal();
@@ -285,14 +308,18 @@ D0FitParams FitD0Mass(const char* file_path, float comb_cut, float rsp_cut) {
 }
 
 //
-// Function to perform the deltam_ReFit 1D fit using 2D cuts on BDTG_response_comb and BDTG_response_rsp.
+// Function to perform the 1D ΔM mass fit.
+// This function follows a similar procedure as FitD0Mass: it opens the ROOT file,
+// applies the selection cuts, creates a histogram and RooDataSet for ΔM, defines the signal
+// and background PDFs (here the background is modeled with a polynomial via RooGenericPdf),
+// performs the fit, prints the results, and returns the fitted parameters.
 //
 DeltaMFitParams FitDeltaMMass(const char* file_path, float comb_cut, float rsp_cut) {
-    // Open file and tree
+    // Open the ROOT file and retrieve the TTree
     TFile* file = TFile::Open(file_path);
     TTree* tree = (TTree*)file->Get("outtree");
 
-    // Variables from tree
+    // Variables read from the tree branches
     float BDTG_response_comb;
     float BDTG_response_rsp;
     float deltam_refit_mass;
@@ -300,10 +327,11 @@ DeltaMFitParams FitDeltaMMass(const char* file_path, float comb_cut, float rsp_c
     tree->SetBranchAddress("BDTG_response_rsp", &BDTG_response_rsp);
     tree->SetBranchAddress("deltam_ReFit", &deltam_refit_mass);
 
-    // Create histogram for DeltaM mass (adjust range and bins as needed)
+    // Create a histogram for the ΔM mass distribution (range and binning can be adjusted)
     TH1F* h_mass = new TH1F("h_mass", "DeltaM Refit Mass;Mass (MeV/c^{2});Events", 100, 142., 152.);
     Long64_t nentries = tree->GetEntries();
     int selectedEvents = 0;
+    // Loop over events and fill the histogram if the event passes the BDTG cuts
     for (Long64_t i = 0; i < nentries; i++) {
         tree->GetEntry(i);
         if (BDTG_response_comb > comb_cut && BDTG_response_rsp > rsp_cut) {
@@ -313,7 +341,7 @@ DeltaMFitParams FitDeltaMMass(const char* file_path, float comb_cut, float rsp_c
     }
     std::cout << "DeltaMFit: Total entries = " << nentries << ", Selected = " << selectedEvents << std::endl;
 
-    // RooFit: create variable and dataset
+    // Define the RooRealVar for ΔM and build a RooDataSet from the histogram
     RooRealVar deltam_refit("deltam_ReFit", "#DeltaM [MeV/c^{2}]", 142., 152.);
     RooDataSet data("data", "dataset", RooArgSet(deltam_refit));
     for (int bin = 1; bin <= h_mass->GetNbinsX(); bin++) {
@@ -326,30 +354,30 @@ DeltaMFitParams FitDeltaMMass(const char* file_path, float comb_cut, float rsp_c
     }
     std::cout << "DeltaMFit: Entries in RooDataSet = " << data.numEntries() << std::endl;
 
-    // Signal model: Johnson PDF
+    // Define the signal model using a Johnson PDF
     RooRealVar mean("mean", "DeltaM Mean", 145, 144, 146);
     RooRealVar lambda("lambda", "DeltaM Lambda", 0.5, 0, 1);
     RooRealVar gamma("gamma", "DeltaM Gamma", -0.7, -1, 1);
     RooRealVar delta("delta", "DeltaM Delta", 1, 0, 10);
     RooJohnson signal("signal", "DeltaM Johnson", deltam_refit, mean, lambda, gamma, delta);
 
-    // Background model: Polynomial background (using RooGenericPdf)
+    // Define the background model as a polynomial using RooGenericPdf
     RooRealVar alpha("alpha", "alpha", 1.0, 0., 10.);
     RooRealVar beta("beta", "beta", 0.1, -10., 10.);
     RooGenericPdf background("background", "Poly background",
                              "pow((deltam_ReFit - 139.5), alpha) * exp(-1*beta*(deltam_ReFit - 139.5))",
                              RooArgSet(deltam_refit, alpha, beta));
 
-    // Total PDF
+    // Define the total PDF as the sum of signal and background components
     RooRealVar nsig("nsig", "Number of signal events", 13023, 0, 1e7);
     RooRealVar nbkg("nbkg", "Number of background events", 2074774, 0, 1e7);
     RooAddPdf total("total", "Signal+Background", RooArgList(signal, background), RooArgList(nsig, nbkg));
 
-    // Perform the fit
+    // Perform the fit and print the results
     RooFitResult* fit_result = total.fitTo(data, RooFit::Save(), RooFit::PrintLevel(-1), RooFit::Minos(true));
     fit_result->Print("v");
 
-    // Store the fitted parameters
+    // Store the fitted parameters in the structure to return
     DeltaMFitParams params;
     params.mean   = mean.getVal();
     params.lambda = lambda.getVal();
@@ -363,33 +391,38 @@ DeltaMFitParams FitDeltaMMass(const char* file_path, float comb_cut, float rsp_c
     file->Close();
     return params;
 }
-// Function to perform the 2D mass fit using 2D cuts on BDTG_response_comb and BDTG_response_rsp.
-// It builds the RooDataSet using events that pass both cuts, performs the fit (using fixed 1D parameters),
-// then produces the 2D mass plots (via Plot2DMass) and returns the yields.
+
+//
+// Function to perform the 2D mass fit.
+// It reads the ROOT file and applies 2D cuts on BDTG responses,
+// builds a 2D RooDataSet using both D0 and ΔM mass variables,
+// constructs signal PDFs for each mass dimension using parameters fixed from the 1D fits,
+// builds background PDFs, and finally constructs the total 2D PDF as a sum of several components.
+// After performing the fit, it returns the yields of the different components.
 //
 TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
                       const D0FitParams &d0Params,
                       const DeltaMFitParams &deltaMParams,
                       const std::string &suffix) {
-  // Open file and tree
+  // Open the ROOT file and retrieve the TTree
   TFile* file = TFile::Open(file_path);
   TTree* tree = (TTree*)file->Get("outtree");
 
-  // Define RooRealVars for the mass dimensions
+  // Define the RooRealVars for D0 and ΔM masses
   RooRealVar D0_refit("Dst_ReFit_D0_M_best", "m(D^{0}) [MeV/c^{2}]", 1820, 1910);
   RooRealVar deltam_refit("deltam_ReFit", "#DeltaM [MeV/c^{2}]", 142, 152);
 
-  // Build the 2D RooDataSet using the 2D cuts:
+  // Build the 2D RooDataSet using the cuts on both BDTG responses
   RooDataSet data("data", "dataset", RooArgSet(D0_refit, deltam_refit));
   Long64_t nentries = tree->GetEntries();
   float D0_refit_mass, deltam_refit_mass;
   float BDTG_response_comb, BDTG_response_rsp;
-  // Set branch addresses for the two cut branches and the mass branches.
   tree->SetBranchAddress("BDTG_response_comb", &BDTG_response_comb);
   tree->SetBranchAddress("BDTG_response_rsp",  &BDTG_response_rsp);
   tree->SetBranchAddress("Dst_ReFit_D0_M_best", &D0_refit_mass);
   tree->SetBranchAddress("deltam_ReFit", &deltam_refit_mass);
   
+  // Loop over events and add to the dataset if the event passes both cuts
   for (Long64_t i = 0; i < nentries; i++) {
     tree->GetEntry(i);
     if (BDTG_response_comb > comb_cut && BDTG_response_rsp > rsp_cut) {
@@ -400,7 +433,7 @@ TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
   }
   std::cout << "2DFit: For suffix " << suffix << " => Entries in RooDataSet = " << data.numEntries() << std::endl;
 
-  // Build signal PDFs using the fixed parameters from the 1D fits
+  // Build the D0 signal PDF using fixed parameters from the 1D D0 mass fit
   RooRealVar d0_mean("d0_mean", "D0 Mean", d0Params.mean);
   RooRealVar d0_lambda("d0_lambda", "D0 Lambda", d0Params.lambda);
   RooRealVar d0_gamma("d0_gamma", "D0 Gamma", d0Params.gamma);
@@ -413,7 +446,7 @@ TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
   RooAddPdf d0_signal_pdf("d0_signal_pdf", "D0 Signal PDF",
                           RooArgList(d0_johnson, bifurGauss), RooArgList(f_bifur));
 
-  // ΔM signal PDF using fixed 1D parameters
+  // Build the ΔM signal PDF using fixed parameters from the 1D ΔM mass fit
   RooRealVar deltam_mean("deltam_mean", "ΔM Mean", deltaMParams.mean);
   RooRealVar deltam_lambda("deltam_lambda", "ΔM Lambda", deltaMParams.lambda);
   RooRealVar deltam_gamma("deltam_gamma", "ΔM Gamma", deltaMParams.gamma);
@@ -421,7 +454,7 @@ TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
   RooJohnson deltam_signal_pdf("deltam_signal_pdf", "ΔM Signal", deltam_refit,
                                deltam_mean, deltam_lambda, deltam_gamma, deltam_delta);
 
-  // Build background PDFs
+  // Build background PDFs for each dimension using the fixed parameters
   RooRealVar bkg_alpha("bkg_alpha", "alpha", deltaMParams.alpha);
   RooRealVar bkg_beta("bkg_beta", "beta", deltaMParams.beta);
   RooGenericPdf deltam_background_pdf("deltam_background_pdf", "Poly bkg",
@@ -431,7 +464,7 @@ TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
   RooRealVar a2("a2", "a2", d0Params.a2);
   RooChebychev d0_background_pdf("d0_background_pdf", "Chebychev bkg", D0_refit, RooArgList(a1, a2));
 
-  // Construct 2D PDFs as products of the 1D PDFs
+  // Construct the 2D PDFs as products of the 1D PDFs
   RooProdPdf signal("signal", "Signal 2D", RooArgList(d0_signal_pdf, deltam_signal_pdf));
   RooProdPdf combinatorial("combinatorial", "Combinatorial bkg", RooArgList(d0_background_pdf, deltam_background_pdf));
   RooProdPdf random_slowpion("random_slowpion", "Random slow pion",
@@ -439,68 +472,69 @@ TwoDYields Fit2DMass(const char* file_path, float comb_cut, float rsp_cut,
   RooProdPdf misreco_D0("misreco_D0", "Misreconstructed D0",
                         RooArgList(d0_background_pdf, deltam_signal_pdf));
 
-  // Define yields for each component
+  // Define the yields for each component of the 2D fit
   RooRealVar Signal_yield("Signal_yield", "Signal yield", 10000, 0, 1e7);
   RooRealVar Combinatorial_yield("Combinatorial_yield", "Comb. yield", 10000000, 0, 1e8);
   RooRealVar Random_slowpion_yield("Random_slowpion_yield", "Random slow yield", 10000000, 0, 1e8);
   RooRealVar Misreco_yield("Misreco_yield", "Misreco yield", 100000, 200, 1e7);
 
-  // Total 2D PDF
+  // Define the total 2D PDF as a sum of the four components
   RooAddPdf total("total", "Total 2D PDF",
                   RooArgList(signal, combinatorial, random_slowpion, misreco_D0),
                   RooArgList(Signal_yield, Combinatorial_yield, Random_slowpion_yield, Misreco_yield));
 
-  // Perform the 2D fit
+  // Perform the 2D fit and print the results
   RooFitResult* fit_result = total.fitTo(data, RooFit::Save(), RooFit::PrintLevel(-1), RooFit::Minos(true));
   fit_result->Print("v");
 
-  // Retrieve yields
+  // Retrieve the yields from the fit results
   TwoDYields yields;
   yields.signal = Signal_yield.getVal();
   yields.combinatorial = Combinatorial_yield.getVal();
   yields.random_slowpion = Random_slowpion_yield.getVal();
   yields.misreco_D0 = Misreco_yield.getVal();
 
-  // Produce the plots (the plots are saved with the given suffix so that each combination is identifiable)
-  //Plot2DMass(D0_refit, deltam_refit, data, total, suffix);
+  // Optionally produce the plots (currently commented out)
+  // Plot2DMass(D0_refit, deltam_refit, data, total, suffix);
 
   file->Close();
   return yields;
 }
 
 //
-// Main function: Loop over 2D cut values (one array for comb and one for rsp),
-// run the 2D mass fit for each combination, and print the yields for each cut clearly.
+// Main function: loops over arrays of BDT cut values, performs 1D fits to extract parameters,
+// runs the 2D mass fit for each combination of cuts, and prints a summary of the yields and significance.
 //
 int main() {
+    // Define arrays of BDT cut values for the combinatorial (comb) and random slow pion (rsp) selections
     std::vector<float> BDTcuts_comb;
     std::vector<float> BDTcuts_rsp;
 
     for (float cut = -1; cut <= 0.4; cut += 0.05) {
         BDTcuts_comb.push_back(cut);
     }
-
     for (float cut = -1; cut <= -0.8; cut += 0.05) {
         BDTcuts_rsp.push_back(cut);
     }
 
-    // Vectors to store yields and cut values
+    // Vectors to store the yields and corresponding cut values for later summary output
     std::vector<float> combCuts, rspCuts;
     std::vector<double> signalYields, combYields, randSlowYields, misrecoYields;
 
-    // File paths
-    const char* filePath1 = "/home/edward/No_Cuts_Run2_2015_events_MagDown/TMVA_output_no_offline_new.root";
+    // Use a generic file name (change as necessary)
+    const char* filePath1 = "input.root";
     
-    // Loop over each cut combination
+    // Loop over each combination of BDT cut values
     for (size_t i = 0; i < BDTcuts_comb.size(); i++) {
         for (size_t j = 0; j < BDTcuts_rsp.size(); j++) {
             float comb_cut = BDTcuts_comb[i];
             float rsp_cut  = BDTcuts_rsp[j];
             
-            // Perform the fits (assumed to be defined elsewhere)
+            // Run the 1D fits to get fixed parameters for the 2D fit
             D0FitParams d0Params = FitD0Mass(filePath1, comb_cut, rsp_cut);
             DeltaMFitParams deltaMParams = FitDeltaMMass(filePath1, comb_cut, rsp_cut);
 
+            // Create a suffix string based on the current cut values for plotting/identification purposes
             std::ostringstream oss;
             oss << "comb_" << comb_cut << "_rsp_" << rsp_cut;
             std::string suffix = oss.str();
@@ -510,8 +544,10 @@ int main() {
             std::cout << "  BDTG_response_comb > " << comb_cut << std::endl;
             std::cout << "  BDTG_response_rsp  > " << rsp_cut << std::endl;
 
+            // Perform the 2D mass fit using the fixed parameters from the 1D fits
             TwoDYields yields = Fit2DMass(filePath1, comb_cut, rsp_cut, d0Params, deltaMParams, suffix);
 
+            // Store the cut values and yields
             combCuts.push_back(comb_cut);
             rspCuts.push_back(rsp_cut);
             signalYields.push_back(yields.signal);
@@ -521,7 +557,7 @@ int main() {
         }
     }
 
-    // Print summary of all fit values to the console
+    // Print a summary table of the yields and calculated significance for each cut combination
     std::cout << "\nSummary of all 2D fit results:" << std::endl;
     std::cout << "Comb Cut, RSP Cut, Signal Yield, Combinatorial Yield, Random Slow Pion Yield, Misreco D0 Yield, Significance" << std::endl;
     for (size_t i = 0; i < signalYields.size(); i++) {
@@ -538,7 +574,7 @@ int main() {
     return 0;
 }
 
-// This function can be called from a ROOT macro to run the entire analysis.
+// This function can be invoked from a ROOT macro to run the complete analysis.
 void Automated_2D_Classifier() {
     main();
 }

@@ -1,3 +1,13 @@
+// This script performs a two-dimensional mass fit for WS (Wrong-Sign) events
+// by fitting the Δm and D0 refitted mass (Dst_ReFit_D0_M_best) distributions.
+// It creates separate RooDataSets for the two mass variables, defines fixed signal
+// and background PDFs for both variables, and then combines them into a total PDF
+// for a 2D fit. Then it projects the masses into three main regions of each mass, 
+// the left tail of each one, the peak and then right tail. The three results are plotted
+// on one canvas with the region printed above each mass projection.
+// To run the analysis, call the function twoD_Mass_Fit_WS_DeltaM_mass_projections()
+// from a ROOT macro or interactive ROOT session.
+
 #include "RooFit.h"
 #include "RooRealVar.h"
 #include "RooDataSet.h"

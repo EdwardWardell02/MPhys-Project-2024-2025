@@ -15,7 +15,5 @@ Each code in this directory has its own ReadMe file explaining its purpose and f
 2. DBSCAN
    - `DBSCAN_clustering_on_RS_and_using_centroid_apply_to_WS.ipynb`: Jupyter notebook for DBSCAN clustering on RS and using centroid, apply to WS.
 3. Dimensionality Reduction
-   - UMAP
-     - `Clustering_a_UMAP_reduced_sample_with_DBSCAN_or_HDBSCAN_with_scoring.ipynb`: Jupyter notebook for clustering a UMAP reduced sample with DBSCAN or HDBSCAN with scoring.
-   - t-SNE
-     - `Clustering_a_t-SNE_reduced_sample_with_DBSCAN_or_HDBSCAN_with_scoring.ipynb`: Jupyter notebook for clustering a t-SNE reduced sample with DBSCAN or HDBSCAN with scoring.
+   - UMAP & t-SNE
+     - `Dimensionality_Reduction_with_UMAP_t-SNE_Clustering_Tests_with_DBSCAN_HDBSCAN.ipynb`: Jupyter notebook for clustering a UMAP and t-SNE reduced sample with DBSCAN or HDBSCAN with scoring.
